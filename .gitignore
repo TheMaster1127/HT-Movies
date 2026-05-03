@@ -1,0 +1,18 @@
+# Ignore all raw data files downloaded from IMDb
+/raw_data/*
+
+# Specifically ignore common compressed and data formats just in case
+*.gz
+*.tsv
+*.csv
+*.json
+*.sqlite
+*.db
+
+# Keep the folder structure but keep it empty on GitHub
+!/raw_data/.gitkeep
+
+# Ignore local AI models and python environment
+__pycache__/
+venv/
+.env
