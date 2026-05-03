@@ -55,3 +55,23 @@ This software (the source code and UI logic) is licensed under the GNU GPL v3 Li
 * A copy of the license is included in the LICENSE file in this repository.
 
 Educational Purpose: This project was built to demonstrate local AI data-enrichment and browser-based data management. Use responsibly.
+
+---
+
+## 📛 LEGAL WARNING & USER RESPONSIBILITY
+
+**This software is a tool – it does not contain, host, or distribute any IMDb data. However, the data you process with this tool is subject to IMDb's own legal terms.**
+
+By using HT‑Movies to download or process data from IMDb, you agree to be bound by the **[IMDb Conditions of Use](https://www.imdb.com/conditions/)**. In particular, note that IMDb’s terms:
+
+- Allow the data to be used **only for personal, non‑commercial purposes**.
+- **Forbid** any alteration, republishing, reselling, or repurposing of the data to create a new database (except for individual personal use).
+- **Forbid** the redistribution of any derived database, whether modified or not.
+
+**Your responsibilities:**  
+- You must manually download the raw IMDb data from [datasets.imdbws.com](https://datasets.imdbws.com/).  
+- Any database you create using HT‑Movies is a **derived work** of IMDb’s copyrighted data.  
+- You may **not** share, upload, or commercially exploit that derived database.  
+- The GNU GPLv3 license that covers the **source code** of HT‑Movies **does not** apply to the IMDb data or to any database you generate with it.
+
+**Disclaimer of liability:** The author of HT‑Movies provides this software for educational and research purposes only. The author does not encourage or condone any violation of IMDb’s terms. You are solely responsible for your own compliance with all applicable licenses and laws.
