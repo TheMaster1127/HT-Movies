@@ -1,5 +1,7 @@
 # 🚧 Under construction 🚧
 # 🚧 Under construction 🚧
+## Do not use this project yet. It's under construction. When you no longer see this message, you can proceed to use this project. Until then, do not use this project.
+# 🚧 Under construction 🚧
 # 🚧 Under construction 🚧
 
 ---
@@ -40,7 +42,8 @@ This project uses Ollama for local AI processing.
    2. Open your terminal and run: ollama pull [MODEL_NAME] (e.g., ollama pull mistral).
 
 ## 3. Run the Processing Pipeline
-[ INSERT YOUR CUSTOM INSTRUCTIONS HERE: Explain how to run your extraction script, how to trigger the AI tagging, and how to finally launch the Flask app. ]
+
+To run ...
 
 ---
 
