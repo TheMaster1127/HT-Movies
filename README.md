@@ -83,29 +83,38 @@ The data processing is split into several stages. Run these scripts in order fro
 ```bash
 python get_info.py
 ```
+
 This scans the massive IMDb files and filters for English/US/UK regions, sorting them by vote thresholds. We target media with >10,000 votes, which equates to roughly ~15,000 highly-rated movies and shows.
 
 **Step 3.2: Extract Base JSONs**
+
 ```bash
 python get_json_top10k.py
 ```
+
 This extracts the standard metadata (cast, runtime, rating, genres) for the targeted movies and shows into the `raw_data/over_10k_movies_jsons` and `raw_data/over_10k_shows_jsons` folders.
 
 **Step 3.3: Build Priority Queues**
+
 ```bash
 python sort_by_votes.py
 ```
+
 This script sorts the extracted items by popularity. The AI will process the most voted-on (most popular) movies and shows first.
 
 **Step 3.4: Start the AI Engine**
 Before running the main AI pipeline, ensure the Ollama service is running in the background. If it isn't running natively, start it in a separate terminal:
+
 ```bash
 ollama serve
 ```
+
 Then, start the extraction loop:
+
 ```bash
 python final.py
 ```
+
 **Time Expectation:** Processing ~15,000 entries will take days to weeks depending heavily on your GPU. The engine automatically processes one movie, then one show, moving down the popularity list.
 
 **How to safely stop the engine:** 
