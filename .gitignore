@@ -4,10 +4,12 @@
 # Specifically ignore common compressed and data formats just in case
 *.gz
 *.tsv
+*.txt
 *.csv
 *.json
 *.sqlite
 *.db
+*.html
 
 # Keep the folder structure but keep it empty on GitHub
 !/raw_data/.gitkeep
