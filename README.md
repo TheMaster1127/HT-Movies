@@ -131,11 +131,15 @@ You do not have to wait weeks for `final.py` to finish. You can use the UI and b
    ```bash
    python build_db.py
    ```
-3. Start the Web UI Backend:
+3. Get all the information about budget of movies:
+   ```bash
+   python sync_financials.py
+   ```
+4. Start the Web UI Backend:
    ```bash
    python app.py
    ```
-4. Open your web browser and navigate to: `http://localhost:8000`
+5. Open your web browser and navigate to: `http://localhost:8000`
 
 ---
 

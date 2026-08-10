@@ -1,6 +1,8 @@
 # Ignore all raw data files downloaded from IMDb
 /raw_data/*
 
+/website/posters/*
+
 # Specifically ignore common compressed and data formats just in case
 *.gz
 *.tsv
