@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HT-Movies Discovery Engine</title>
+    <style>
+        :root {
+            --bg: #111111; --panel: #1a1a1a; --border: #333333; --text: #ffffff; 
+            --text-dim: #aaaaaa; --accent: #00d4ff; --green: #00ff44; --red: #ff3333; --yellow: #ffcc00;
+        }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        #sidebar-container { display: flex; height: 100%; flex-shrink: 0; position: relative; }
+        #sidebar { width: 380px; background: var(--panel); display: flex; flex-direction: column; min-width: 250px; max-width: 1200px; border-right: 1px solid var(--border); z-index: 10;}
+        #resizer { width: 5px; background: var(--border); cursor: col-resize; flex-shrink: 0; transition: background 0.2s; z-index: 150;}
+        #resizer:hover, #resizer.active { background: var(--accent); }
+        
+        #sidebar-header { padding: 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--panel); z-index: 5;}
+        #sidebar-content { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+        .sidebar-section { margin-bottom: 15px; }
+        
+        #main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; min-width: 0; height: 100%; }
+        #topbar { padding: 15px; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+        #grid-container { flex: 1; overflow-y: auto; padding: 20px; transition: opacity 0.2s; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
+        
+        h3 { font-size: 14px; margin: 0 0 10px 0; border-bottom: 1px solid var(--border); padding-bottom: 5px; color: var(--accent); display: flex; justify-content: space-between; align-items:center;}
+        select, input[type="text"], input[type="number"], input[type="color"] { background: #2a2a2a; color: white; border: 1px solid var(--border); padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        .btn { background: #2a2a2a; border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: #3a3a3a; }
+        .btn-accent { background: var(--accent); color: #000; border: none; }
+        .btn-accent:hover { background: #00b3cc; opacity: 0.9; }
+
+        .tri-btn { display: inline-flex; align-items: center; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; user-select: none; margin: 3px; }
+        .tri-btn.state-1 { border-color: var(--green); color: var(--green); background: rgba(0,255,68,0.05); }
+        .tri-btn.state-2 { border-color: var(--red); color: var(--red); background: rgba(255,51,51,0.05); text-decoration: line-through; }
+        
+        .box-group { margin-bottom: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; border: 1px solid var(--border); }
+        .box-title { font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:8px; font-weight:bold; }
+        .range-row { display:flex; gap:10px; align-items:center; margin-bottom:5px; }
+        .range-val { font-size:10px; width:25px; text-align:right;}
+        
+        details.accordion { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 5px; }
+        details.accordion summary { padding: 10px; cursor: pointer; font-size: 12px; font-weight: bold; color: var(--accent); user-select: none; }
+        details.accordion .content { border-top: 1px solid var(--border); }
+        
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 15px; display: flex; flex-direction: column; gap: 10px; transition: 0.2s; }
+        .card.rejected-card { opacity: 0.4; border-color: var(--red); }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .card-title { font-size: 16px; font-weight: bold; color: var(--accent); margin: 0; }
+        .card-meta { font-size: 11px; color: var(--text-dim); display:flex; gap: 10px; align-items:center;}
+        .tag { background: #2a2a2a; padding: 3px 6px; border-radius: 3px; font-size: 10px; color: var(--text); border: 1px solid #333; user-select: none; display:inline-block;}
+        .tag.clickable { cursor:pointer; transition:0.2s; }
+        .tag.clickable:hover { filter: brightness(1.2); }
+        
+        .glow-pref { border-color: var(--green) !important; color: var(--green) !important; box-shadow: 0 0 8px rgba(0,255,68,0.5); }
+        .glow-ban { border-color: var(--red) !important; color: var(--red) !important; text-decoration: line-through; box-shadow: 0 0 8px rgba(255,51,51,0.5); }
+        
+        .card-summary { font-size: 12px; color: #ccc; line-height: 1.4; flex: 1; }
+        .card-actions { display: flex; gap: 5px; margin-top: auto; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
+        
+        .modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; display: none; }
+        .modal { background: var(--panel); padding: 25px; border-radius: 8px; border: 1px solid var(--border); width: 650px; max-width: 90%; max-height: 90vh; overflow-y: auto; }
+        
+        .tut-box { background: rgba(0,212,255,0.05); border: 1px solid var(--accent); padding: 15px; border-radius: 4px; margin-bottom: 15px; }
+        
+        .ai-table { width: 100%; border-collapse: collapse; font-size:12px; margin-bottom:20px; }
+        .ai-table th { background: #222; padding: 8px; text-align: left; color: var(--accent); border: 1px solid var(--border); }
+        .ai-table td { padding: 6px; border: 1px solid var(--border); }
+        .ai-table td:first-child { font-weight: bold; width: 40%; color:var(--text); }
+
+        .rating-btn { padding: 15px; background: #2a2a2a; border: 1px solid var(--border); color: white; border-radius: 4px; cursor: pointer; text-align: center; font-weight: bold; font-size: 16px;}
+        .rating-btn.selected { background-color: var(--accent) !important; color: #000 !important; border-color: var(--accent) !important; transform: scale(1.05); }
+
+        #btn-close-sidebar { display: none !important; }
+        .search-clear-btn { position:absolute; right:5px; top:50%; transform:translateY(-50%); background:none; border:none; color:#aaa; cursor:pointer; font-size:14px; padding:5px; transition:0.2s;}
+        .search-clear-btn:hover { color: var(--accent); }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        @media (max-width: 768px) {
+            #mobile-menu-btn { display: block !important; }
+            #btn-close-sidebar { display: inline-block !important; }
+            #sidebar-container { position: absolute; z-index: 1000; left: -100%; transition: left 0.3s; width: 85%; }
+            #sidebar-container.open { left: 0; }
+            #resizer { display: none; }
+            #sidebar { width: 100%; max-width: none; border-right: 2px solid var(--accent); box-shadow: 5px 0 15px rgba(0,0,0,0.8); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar-container">
+    <div id="sidebar">
+        <div id="sidebar-header">
+            <div style="display:flex; gap:10px; align-items:center;">
+                <h2 style="margin:0; color:var(--accent); font-size:18px;">🎬 HT-Movies</h2>
+            </div>
+            <div style="display:flex; gap:5px;">
+                <button class="btn btn-accent" style="padding:4px 8px; font-size:10px;" onclick="doSearch()">✅ Apply</button>
+                <button class="btn" style="padding:4px 8px; font-size:10px; border-color:var(--red); color:var(--red);" onclick="clearAllFilters()">♻️ Clear All</button>
+                <button class="btn" style="padding:4px 8px; font-size:10px;" onclick="openModal('modal-tutorial')">ℹ️ Tutorial</button>
+                <button id="btn-close-sidebar" class="btn" style="padding:4px 8px; font-size:10px;" onclick="toggleSidebar()">✖</button>
+            </div>
+        </div>
+        <div id="sidebar-content">
+            <div class="sidebar-section" id="sec-profile" style="order: 0;">
+                <h3>Profile <button class="btn" onclick="openModal('modal-settings')" style="padding:2px 6px; font-size:10px;">⚙️ Settings</button></h3>
+                <div style="display:flex; gap:5px;">
+                    <select id="profile-select" onchange="switchProfile()" style="flex:1;"></select>
+                    <button class="btn" onclick="newProfile()" title="New Profile">+ New</button>
+                    <button class="btn" onclick="deleteProfile()" style="color:var(--red); border-color:var(--red);" title="Delete Current Profile">🗑️</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section" id="sec-base" style="order: 1;">
+                <h3>Base Filters</h3>
+                <select id="filter-type" style="margin-bottom:10px;">
+                    <option value="both">All (Movies & Shows)</option>
+                    <option value="movie">Movies Only</option>
+                    <option value="show">Shows Only</option>
+                </select>
+                
+                <div class="box-group">
+                    <div class="box-title">Rating Range (0 to 10)</div>
+                    <div class="range-row"><span style="font-size:10px; width:25px;">Min:</span><input type="range" id="filter-rating-min" min="0" max="10" step="0.1" value="0" style="flex:1; padding:0;" oninput="document.getElementById('lbl-rating-min').innerText=this.value"><span id="lbl-rating-min" class="range-val">0</span></div>
+                    <div class="range-row"><span style="font-size:10px; width:25px;">Max:</span><input type="range" id="filter-rating-max" min="0" max="10" step="0.1" value="10" style="flex:1; padding:0;" oninput="document.getElementById('lbl-rating-max').innerText=this.value"><span id="lbl-rating-max" class="range-val">10</span></div>
+                </div>
+
+                <div class="box-group">
+                    <div class="box-title">Votes Range</div>
+                    <div class="range-row"><input type="number" id="filter-votes-min" placeholder="Min Votes (e.g. 1000)" style="flex:1;"><input type="number" id="filter-votes-max" placeholder="Max Votes" style="flex:1;"></div>
+                </div>
+
+                <div class="box-group">
+                    <div class="box-title">Production Budget ($ USD)</div>
+                    <div class="range-row"><input type="number" id="filter-budget-min" placeholder="Min Budget (e.g. 10000000)" style="flex:1;"><input type="number" id="filter-budget-max" placeholder="Max Budget" style="flex:1;"></div>
+                </div>
+
+                <div class="box-group">
+                    <div class="box-title">Release Year</div>
+                    <div class="range-row"><input type="number" id="filter-year-min" placeholder="Min (e.g. 2002)" style="flex:1;"><input type="number" id="filter-year-max" placeholder="Max (e.g. 2007)" style="flex:1;"></div>
+                </div>
+                <div class="box-group">
+                    <div class="box-title">Duration (Minutes)</div>
+                    <div class="range-row"><input type="number" id="filter-runtime-min" placeholder="Min length" style="flex:1;"><input type="number" id="filter-runtime-max" placeholder="Max length" style="flex:1;"></div>
+                </div>
+                <div class="box-group">
+                    <div class="box-title">TV Show Size</div>
+                    <div class="range-row"><input type="number" id="filter-seasons-min" placeholder="Min Seasons" style="flex:1;"><input type="number" id="filter-seasons-max" placeholder="Max Seasons" style="flex:1;"></div>
+                    <div class="range-row"><input type="number" id="filter-episodes-min" placeholder="Min Total Eps" style="flex:1;"><input type="number" id="filter-episodes-max" placeholder="Max Total Eps" style="flex:1;"></div>
+                    <div class="range-row"><input type="number" id="filter-eps-season-min" placeholder="Min Eps per Season" style="flex:1;"><input type="number" id="filter-eps-season-max" placeholder="Max Eps per Season" style="flex:1;"></div>
+                </div>
+                <div class="box-group">
+                    <div class="box-title">Cast Size</div>
+                    <div class="range-row"><input type="number" id="filter-cast-size-min" placeholder="Min Actors" style="flex:1;"><input type="number" id="filter-cast-size-max" placeholder="Max Actors" style="flex:1;"></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section" id="sec-pct" style="order: 2;">
+                <h3>Percentages</h3>
+                <div id="percentages-container"></div>
+            </div>
+            
+            <div class="sidebar-section" id="sec-int" style="order: 3;">
+                <h3>AI Integers</h3>
+                <div id="integers-container"></div>
+            </div>
+
+            <div class="sidebar-section" id="sec-vibes" style="order: 4;">
+                <h3>Vibes</h3>
+                <details class="accordion"><summary>Vibe Words</summary>
+                    <div class="content" style="padding:10px; max-height:250px; overflow-y:auto;">
+                        <input type="text" id="vibe-word-search" placeholder="Search vibe words..." onkeyup="filterVibeWordsUI()" style="margin-bottom:10px; font-size:10px; padding:4px;">
+                        <div id="vibe-words-container"></div>
+                    </div>
+                </details>
+                <details class="accordion"><summary>Exact AI Vibes</summary>
+                    <div class="content" style="padding:10px; max-height:250px; overflow-y:auto;" id="vibe-exact-container"></div>
+                </details>
+            </div>
+
+            <div class="sidebar-section" id="sec-cast" style="order: 5;">
+                <h3>Cast Preferences <span id="total-actors-count" style="font-size:10px; font-weight:normal; color:var(--text-dim);"></span></h3>
+                <details class="accordion">
+                    <summary>Select Actors</summary>
+                    <div class="content" style="padding:0;">
+                        <div style="padding: 10px; border-bottom: 1px solid #333; background:rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 5;">
+                            <select id="actor-mode" style="margin-bottom:10px; font-size:11px;">
+                                <option value="sort">Sort Only (Push preferred to top)</option>
+                                <option value="any">Filter: Must include ANY selected</option>
+                                <option value="all">Filter: Must include ALL selected</option>
+                            </select>
+                            <input type="text" id="cast-search" placeholder="Search actors..." onkeyup="filterCastUI()" style="margin-bottom:10px; font-size:10px; padding:4px;">
+                            <div id="active-cast-list" style="display:flex; flex-wrap:wrap; gap:4px; max-height:100px; overflow-y:auto;"></div>
+                        </div>
+                        <div id="cast-container" style="padding:10px; max-height:300px; overflow-y:auto;"></div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="sidebar-section" id="sec-genres" style="order: 6;">
+                <h3>Genres</h3>
+                <div id="genres-container"></div>
+                
+                <details class="accordion" style="margin-top:10px;">
+                    <summary>Reject if ONLY... (Dynamic)</summary>
+                    <div class="content" style="padding:10px;">
+                        <div style="font-size:10px; color:#aaa; margin-bottom:10px; line-height:1.4;">
+                            These lists automatically hide any genres you have completely banned above.
+                        </div>
+                        <input type="text" id="genre-only-search" placeholder="Search combinations..." onkeyup="filterGenreOnlyUI()" style="margin-bottom:10px; font-size:10px; padding:4px;">
+                        
+                        <span style="font-size:10px; color:var(--accent); font-weight:bold;">SINGLE GENRE</span>
+                        <div id="genres-only-container" style="max-height:150px; overflow-y:auto; margin-bottom:10px; margin-top:5px;"></div>
+                        
+                        <div style="border-top:1px solid var(--border); padding-top:10px; margin-top:10px;">
+                            <span style="font-size:10px; color:var(--accent); font-weight:bold;">EXACTLY TWO GENRES (PAIRS)</span>
+                            <div id="genres-pairs-container" style="max-height:150px; overflow-y:auto; margin-top:5px;"></div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="sidebar-section" id="sec-bools" style="order: 7;">
+                <h3>AI Traits</h3>
+                <div id="booleans-container"></div>
+            </div>
+        </div>
+    </div>
+    <div id="resizer"></div>
+</div>
+
+<div id="main">
+    <div id="topbar">
+        <button id="mobile-menu-btn" class="btn" style="display:none;" onclick="toggleSidebar()">☰ Filters</button>
+        <div style="display:flex; gap:10px; flex:1; min-width:200px;">
+            <div style="position:relative; flex:1; display:flex;">
+                <input type="text" id="search-box" placeholder="Search... Use | for multiple words (e.g. Action | Pitt)" style="flex:1; padding-right:30px;">
+                <button class="search-clear-btn" onclick="document.getElementById('search-box').value=''; doSearch();">✖</button>
+            </div>
+            <button class="btn btn-accent" onclick="doSearch()">🔍 Search</button>
+        </div>
+        
+        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+            <select id="sort-by" style="width:auto;">
+                <option value="rating">Sort: Rating</option>
+                <option value="preferred_cast">Sort: Preferred Cast Match (Strict)</option>
+                <option value="votes">Sort: Votes</option>
+                <option value="budget">Sort: Production Budget</option>
+                <option value="total_episodes">Sort: Total Episodes (Shows)</option>
+                <option value="year_int">Sort: Release Year</option>
+                <option value="runtime_int">Sort: Duration</option>
+            </select>
+            <select id="sort-order" style="width:auto;">
+                <option value="desc">Highest First</option>
+                <option value="asc">Lowest First</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:5px;">
+            <span id="result-count" style="line-height:34px; margin-right:10px; font-size:12px; color:var(--accent); font-weight:bold;"></span>
+            <button class="btn" id="btn-view-main" onclick="setView('main')" style="background:var(--accent); color:#000;">Discover</button>
+            <button class="btn" id="btn-view-wl" onclick="setView('watch_later')">★ Watch Later</button>
+        </div>
+    </div>
+
+    <div id="wl-toolbar" style="display:none; padding:10px 20px; background:rgba(0,0,0,0.4); border-bottom:1px solid var(--border); flex-shrink:0;">
+        <span style="font-size:12px; color:#aaa; margin-right:10px;">Watch Later Ordering:</span>
+        <select id="wl-sort" onchange="doSearch()" style="width:auto; display:inline-block;">
+            <option value="latest">Added Latest</option>
+            <option value="priority_desc">Priority (10 to 1)</option>
+            <option value="priority_asc">Priority (1 to 10)</option>
+            <option value="standard">Use Discover Sort Filter</option>
+        </select>
+    </div>
+
+    <div id="grid-container"></div>
+    
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="modal-settings">
+        <div class="modal">
+            <h2 style="margin-top:0; color:var(--accent);">⚙️ Profile Settings</h2>
+            
+            <h3>Theme Colors</h3>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">Background: <input type="color" id="col-bg" style="width:50px; padding:0; border:none; background:transparent;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">Panels: <input type="color" id="col-panel" style="width:50px; padding:0; border:none; background:transparent;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">Accent: <input type="color" id="col-accent" style="width:50px; padding:0; border:none; background:transparent;"></div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:15px;">Text: <input type="color" id="col-text" style="width:50px; padding:0; border:none; background:transparent;"></div>
+            <button class="btn" style="width:100%; margin-bottom:15px;" onclick="applyColors()">Apply Colors</button>
+
+            <h3>Sidebar Layout Order</h3>
+            <div id="layout-editor" style="background:#111; padding:10px; border-radius:4px; font-size:12px; margin-bottom:15px;"></div>
+
+            <h3>Data Management</h3>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="display:flex; align-items:center; gap:10px; font-size:12px;">
+                    <input type="checkbox" id="cb-show-posters" onchange="togglePosters()"> Fetch & Show Movie Posters (Saved locally)
+                </label>
+                <button class="btn" onclick="restoreRejected()">Restore All Rejected</button>
+                <button class="btn" onclick="restoreHidden()">Restore All Hidden</button>
+                <button class="btn" style="border-color:var(--red); color:var(--red);" onclick="restoreAll()">⚠️ NUKE Profile Data</button>
+                <label style="display:flex; align-items:center; gap:10px; font-size:12px; margin-top:10px;">
+                    <input type="checkbox" id="cb-show-hidden" onchange="toggleShowHidden()"> Show hidden movies temporarily
+                </label>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                <button class="btn btn-accent" onclick="closeModal('modal-settings')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watch Later Modal -->
+    <div class="modal-overlay" id="modal-wl">
+        <div class="modal" style="width:450px;">
+            <h2 id="modal-wl-title" style="margin-top:0; color:var(--accent);"></h2>
+            <p style="color:#ccc; font-size:13px;">How badly do you want to watch this? Select priority (1 to 10).</p>
+            <div class="rating-grid" id="wl-rating-grid" style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px;"></div>
+            <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                <button class="btn" onclick="closeModal('modal-wl')">Cancel</button>
+                <button class="btn btn-accent" onclick="confirmWatchLater()">Save to Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Cast Modal -->
+    <div class="modal-overlay" id="modal-cast">
+        <div class="modal">
+            <h2 style="margin-top:0; color:var(--accent);">Full Cast <span style="font-size:11px; font-weight:normal; color:#aaa;">(Click actor to cycle preference)</span></h2>
+            <div id="full-cast-list" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+            <button class="btn btn-accent" style="margin-top:20px; width:100%;" onclick="closeModal('modal-cast')">Close</button>
+        </div>
+    </div>
+
+    <!-- Full Info Modal (AI vs Standard) -->
+    <div class="modal-overlay" id="modal-ai-info">
+        <div class="modal" style="width: 800px;">
+            <h2 id="ai-info-title" style="margin-top:0; color:var(--accent);"></h2>
+            <table class="ai-table" id="standard-info-table"></table>
+            <table class="ai-table" id="ai-intel-table"></table>
+            <button class="btn btn-accent" style="margin-top:10px; width:100%;" onclick="closeModal('modal-ai-info')">Close</button>
+        </div>
+    </div>
+
+    <!-- Huge Tutorial Modal -->
+    <div class="modal-overlay" id="modal-tutorial">
+        <div class="modal" style="width: 1000px; max-height: 95vh;">
+            <h2 style="margin-top:0; color:var(--accent); font-size:26px; text-align:center; border-bottom:1px solid var(--border); padding-bottom:15px;">📖 HT-Movies Master Documentation</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top:15px;">
+                
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">1. Profile Saving & Auto-State (F5 Safe)</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    The engine now explicitly saves every single move you make to your active Profile. Every slider dragged, every checkbox ticked, and every search query typed is instantly cached.<br><br>
+                    If you press <b>F5</b>, the engine will flawlessly boot up exactly where you left off. Switching between Profiles acts as a hard boundary—changing to a "New Profile" will wipe the interface clean without affecting your main save.</p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">2. Multi-Word "Pipe" Searching</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    The Search Bar is highly advanced. You can use the Pipe character ( <b>|</b> ) to enforce that multiple distinct words <i>must</i> exist in the same movie's Title, Summary, or Cast.<br><br>
+                    <b>Example:</b> Typing <code>Pitt | action</code> forces the engine to find records containing BOTH strings. <br>
+                    <b>Space Sensitivity:</b> The search respects exact spacing! Searching for <code> tree</code> (with a space before it) guarantees you find words that start with "tree", strictly excluding matches like "free" or "three".</p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">3. Tri-State Toggle Filters</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    The core of the engine. Clicking any Genre or AI Trait cycles through three distinct modes:<br>
+                    <b>⬛ Grey (Neutral):</b> The engine ignores this trait completely.<br>
+                    <b>✅ Green (Must Have):</b> Strict inclusion. The database <i>must</i> confirm this trait is true.<br>
+                    <b>❌ Red (Banned):</b> Strict exclusion. The database <i>must</i> confirm this trait is false. No exceptions.</p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">4. Advanced Show Filters (The Grace Season)</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    When filtering <b>Episodes per Season</b>, the engine automatically allows exactly <i>one</i> season to violate your rule if the show has 2 or more seasons (this allows for shortened finales or pilots). If a show only has 1 season, it strictly obeys your min/max limits.</p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">5. Advanced Cast Engine</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    Clicking an actor cycles them through your preferences:<br>
+                    <span class="tag glow-pref clickable">Green</span> = Preferred Cast. <span class="tag glow-ban clickable">Red</span> = Banned Cast.<br><br>
+                    <b>Cast Sorting vs Filtering:</b> By default, picking Preferred actors just lets you <i>Sort</i> them to the top of the grid. But, using the dropdown in the sidebar, you can mandate that a movie includes <b>ANY</b> or <b>ALL</b> of your preferred actors.</p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">6. AI Data & Quirks</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    Clicking the `Full Info` button reveals exactly what parameters the AI assigned to the movie. The table is explicitly split into Standard DB Info and AI Intel.<br><br>
+                    <i>Note: The AI operates on best-effort parsing from Wikipedia. You may occasionally find funny artifacts (like Animals classified as having high IQs, or Nature Documentaries having "Action Intensity"). This is part of the fun of raw AI data parsing!</i></p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">7. The Graveyard & Actions</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    <b>Hide:</b> Erases the movie from your grid entirely. You will never see it again unless you toggle "Show hidden" in Settings.<br>
+                    <b>Reject:</b> Pushes the movie to the bottom "Rejected" graveyard pile.<br>
+                    <b>Watch Later:</b> Prompts you for a Priority Level (1-10) so you can sort your backlog.</p>
+                </div>
+
+                <div class="tut-box" style="margin:0;">
+                    <h4 style="margin:0 0 8px 0; color:var(--accent); font-size:16px;">8. The Clear All & Settings</h4>
+                    <p style="margin:0; font-size:13px; color:#ccc; line-height:1.6;">
+                    <b>Clear All:</b> The massive <code>♻️ Clear All</code> button instantly wipes out every slider, toggle, text box, and cast selection, auto-refreshing you to a perfectly clean slate.<br>
+                    <b>Settings:</b> Change Hex Colors of the dark mode layout, and drag/drop Sidebar tabs to re-order them exactly how you like.</p>
+                </div>
+
+            </div>
+            
+            <button class="btn btn-accent" style="margin-top:20px; width:100%; font-size:18px; font-weight:bold; padding:15px;" onclick="closeModal('modal-tutorial')">May the best movie find you ... or show.</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let userData = { profiles: { "Default": { rejected: [], hidden: [], watch_later: {}, preferred_cast: [], banned_cast: [], colors:{}, section_order:{}, filters:{}, show_posters: true } }, current_profile: "Default" };
+    let currentView = 'main';
+    let availablePercents = [], availableIntegers = [];
+    let window_allGenres = [];
+    let _boolFields = []; 
+    let showHiddenOverrides = false;
+    let sidebarSections = ["sec-profile", "sec-base", "sec-pct", "sec-int", "sec-vibes", "sec-cast", "sec-genres", "sec-bools"];
+    let pendingWlId = null, pendingWlRating = 0;
+    
+    window._posterCache = {};
+    window._finCache = {};
+    window.currentMovies = {};
+    window._allActors = [];
+    
+    // The colorful beautiful fallback image without any opacity masks
+    const DEFAULT_POSTER = 'https://m.media-amazon.com/images/M/MV5BMjJkZjE4NjMtNWVjMC00YzIzLWIwYmUtNTBmY2Q0OTQxYTVjXkEyXkFqcGc@._V1_.jpg';
+    
+    // Virtualization / Lazy Loading state
+    window._currentMainList = [];
+    window._currentRejList = [];
+    window._renderMainIdx = 0;
+    window._renderRejIdx = 0;
+    const CHUNK_SIZE = 40;
+    
+    // Intersection Observer for network requests
+    window._lazyObserver = new IntersectionObserver((entries) => {
+        let p = userData.profiles[userData.current_profile];
+        entries.forEach(ent => {
+            if(ent.isIntersecting) {
+                let el = ent.target;
+                let id = el.dataset.id;
+                let title = el.dataset.title;
+                
+                if(p.show_posters && el.dataset.posterLoaded !== "true") {
+                    el.dataset.posterLoaded = "true";
+                    loadPosterForCard(id, title);
+                }
+                
+                if(el.dataset.finLoaded !== "true") {
+                    el.dataset.finLoaded = "true";
+                    loadFinForCard(id);
+                }
+            }
+        });
+    }, { root: document.getElementById('grid-container'), rootMargin: '300px' });
+
+    const AI_KEYS_ORDER = [
+        'short_summary', 'vibe', 'western_cast_percentage', 'eastern_cast_percentage', 'action_intensity_percentage', 
+        'sci_fi_percentage', 'is_bollywood', 'is_main_character_male', 'is_main_character_female', 'is_anyone_runaway_boy', 
+        'is_anyone_runaway_son', 'is_anyone_runaway_female', 'is_anyone_runaway_daughter', 'is_anyone_runaway_mother', 
+        'is_anyone_runaway_father', 'is_anyone_runaway_grandfather', 'is_anyone_runaway_grandmother', 'is_russian_mafia_present', 
+        'is_main_actor_russian', 'is_romantic_sexual_subplot_present', 'main_actor_count', 'is_setting_big_city', 
+        'is_setting_village', 'is_setting_wilderness', 'is_military_present', 'are_snipers_present', 'are_car_chases_present', 
+        'is_main_character_child', 'is_main_character_killer_assassin', 'do_people_die', 'has_anyone_superpowers', 
+        'is_anyone_invincible', 'can_anyone_fly', 'can_anyone_shoot_lasers_from_eyes', 'can_anyone_become_invisible', 
+        'can_anyone_teleport', 'can_anyone_read_minds', 'is_intelligence_extremely_smart', 'is_intelligence_smart', 
+        'is_intelligence_average', 'is_intelligence_dumb', 'is_intelligence_extremely_dumb', 'main_character_estimated_iq'
+    ];
+    const STANDARD_KEYS_ORDER = ['id', 'title', 'type', 'year', 'runtime', 'rating', 'votes', 'budget', 'genres', 'cast_list', 'total_seasons', 'total_episodes', 'season_episodes'];
+
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
+    let isResizing = false;
+    resizer.addEventListener('mousedown', () => { isResizing = true; resizer.classList.add('active'); });
+    window.addEventListener('mousemove', (e) => { if(isResizing) sidebar.style.width = e.clientX + 'px'; });
+    window.addEventListener('mouseup', () => { isResizing = false; resizer.classList.remove('active'); });
+
+    window.toggleSidebar = function() { document.getElementById('sidebar-container').classList.toggle('open'); };
+
+    // Infinite Scroll trigger
+    document.getElementById('grid-container').addEventListener('scroll', function(e) {
+        if(this.scrollHeight - this.scrollTop - this.clientHeight < 800) {
+            renderNextChunk();
+        }
+    });
+
+    async function init() {
+        try {
+            let r1 = await fetch('/api/user_data');
+            let d1 = await r1.json();
+            if(d1.success) userData = d1.data;
+        } catch(e) { console.error("Initial load failed, using defaults"); }
+        
+        updateProfileDropdown();
+        applyProfileSettings();
+
+        try {
+            let r2 = await fetch('/api/fields');
+            let res = await r2.json();
+            if(res.success) {
+                window_allGenres = res.genres;
+                window._boolFields = res.booleans;
+                
+                document.getElementById('genres-container').innerHTML = res.genres.map(g => `<div class="tri-btn filter-genre state-0" data-field="${g}" data-state="0">⬛ ${g}</div>`).join('');
+                document.getElementById('booleans-container').innerHTML = res.booleans.map(b => `<div class="tri-btn filter-bool state-0" data-field="${b}" data-state="0">⬛ ${b.replace(/^is_|^has_|^can_|^do_|^are_/, '').replace(/_/g, ' ')}</div>`).join('');
+
+                document.getElementById('genres-container').onclick = function(e) { if(e.target.classList.contains('filter-genre')) cycleState(e.target); };
+                document.getElementById('booleans-container').onclick = function(e) { if(e.target.classList.contains('filter-bool')) cycleState(e.target); };
+
+                availablePercents = res.percentages;
+                let p_sorted = [...res.percentages].sort((a,b) => {
+                    let w = { 'action_intensity_percentage':1, 'western_cast_percentage':2, 'eastern_cast_percentage':3, 'sci_fi_percentage':4 };
+                    return (w[a]||99) - (w[b]||99) || a.localeCompare(b);
+                });
+
+                document.getElementById('percentages-container').innerHTML = p_sorted.map(p => `
+                    <div class="box-group">
+                        <div class="box-title">${p.replace('_percentage', '').replace(/_/g, ' ')} %</div>
+                        <div class="range-row"><input type="range" id="pct_min_${p}" min="0" max="100" step="5" value="0" style="flex:1; padding:0;" oninput="document.getElementById('lbl_min_${p}').innerText=this.value+'%'"><span id="lbl_min_${p}" class="range-val">0%</span></div>
+                        <div class="range-row"><input type="range" id="pct_max_${p}" min="0" max="100" step="5" value="100" style="flex:1; padding:0;" oninput="document.getElementById('lbl_max_${p}').innerText=this.value+'%'"><span id="lbl_max_${p}" class="range-val">100%</span></div>
+                    </div>`).join('');
+                
+                availableIntegers = res.integers;
+                document.getElementById('integers-container').innerHTML = res.integers.map(i => `
+                    <div class="box-group">
+                        <div class="box-title">${i.replace(/_/g, ' ')}</div>
+                        <div class="range-row"><input type="number" id="int_min_${i}" placeholder="Min" style="flex:1;"><input type="number" id="int_max_${i}" placeholder="Max" style="flex:1;"></div>
+                    </div>`).join('');
+
+                document.getElementById('vibe-exact-container').innerHTML = res.exact_vibes.map(v => `<label style="display:block; font-size:11px; margin:3px 0;"><input type="checkbox" class="cb-vibe-exact" value="${v.vibe}"> ${v.vibe} <span style="color:#666">(${v.count})</span></label>`).join('');
+                document.getElementById('vibe-words-container').innerHTML = res.word_vibes.map(v => `<label class="vibe-word-item" style="display:block; font-size:11px; margin:3px 0;"><input type="checkbox" class="cb-vibe-word" value="${v.vibe}"> ${v.vibe} <span style="color:#666">(${v.count})</span></label>`).join('');
+                
+                window._allActors = res.actors;
+                document.getElementById('total-actors-count').innerText = `(${window._allActors.length} total)`;
+
+                let selSort = document.getElementById('sort-by');
+                res.percentages.forEach(p => { selSort.add(new Option(`Sort: ${p.replace('_percentage', '').replace(/_/g, ' ')} %`, p)); });
+                res.integers.forEach(i => { selSort.add(new Option(`Sort: ${i.replace(/_/g, ' ')}`, i)); });
+            }
+        } catch(e) { console.error("API Field error"); }
+        
+        document.getElementById('cast-container').onclick = handleCastClick;
+        document.getElementById('active-cast-list').onclick = function(e) { handleCastClick(e, true); };
+        document.getElementById('full-cast-list').onclick = handleCastClick;
+
+        applyFiltersToUI(); 
+        buildLayoutEditor();
+        doSearch();
+    }
+
+    function syncUI() {
+        document.querySelectorAll('input[type=range]').forEach(el => {
+            let lbl = document.getElementById(el.id.replace('filter-', 'lbl-').replace('pct_', 'lbl_'));
+            if(lbl) {
+                if(el.id.includes('pct')) lbl.innerText = el.value + '%';
+                else lbl.innerText = el.value;
+            }
+        });
+    }
+
+    window.filterVibeWordsUI = function() {
+        let q = document.getElementById('vibe-word-search').value.toLowerCase();
+        document.querySelectorAll('.vibe-word-item').forEach(el => { 
+            el.style.display = el.innerText.toLowerCase().includes(q) ? 'block' : 'none'; 
+        });
+    };
+    
+    window.filterGenreOnlyUI = function() {
+        let q = document.getElementById('genre-only-search').value.toLowerCase();
+        document.querySelectorAll('.lbl-go, .lbl-gp').forEach(el => {
+            el.style.display = el.innerText.toLowerCase().includes(q) ? 'block' : 'none';
+        });
+    };
+
+    window.clearAllFilters = function() {
+        let p = userData.profiles[userData.current_profile];
+        p.filters = {};
+        p.preferred_cast = [];
+        p.banned_cast = [];
+        
+        applyFiltersToUI();
+        saveStateQuiet(); 
+        doSearch(); 
+    };
+
+    // The magical logic to build Valid Combinations for Exclusions
+    function updateRejectOnlyUI() {
+        let exc = [];
+        document.querySelectorAll('.filter-genre').forEach(el => {
+            if(el.dataset.state === "2") exc.push(el.dataset.field);
+        });
+
+        // Only offer pairs and singles for genres NOT already totally banned
+        let valid = window_allGenres.filter(g => !exc.includes(g));
+        valid.sort();
+
+        // Keep a copy of what they currently have checked so re-rendering doesn't erase it
+        let checkedSingles = Array.from(document.querySelectorAll('.cb-genre-only:checked')).map(el => el.value);
+        let checkedPairs = Array.from(document.querySelectorAll('.cb-genre-pair:checked')).map(el => el.value);
+
+        // Build Singles
+        let htmlSingles = valid.map(g => `<label class="lbl-go" style="display:block; font-size:11px; margin:3px 0;"><input type="checkbox" class="cb-genre-only" value="${g}"> ONLY ${g}</label>`).join('');
+        document.getElementById('genres-only-container').innerHTML = htmlSingles;
+
+        // Build Pairs mathematically
+        let pairs = [];
+        for(let i = 0; i < valid.length; i++) {
+            for(let j = i + 1; j < valid.length; j++) {
+                pairs.push(`${valid[i]}|${valid[j]}`);
+            }
+        }
+        let htmlPairs = pairs.map(p => {
+            let display = p.replace('|', ' + ');
+            return `<label class="lbl-gp" style="display:block; font-size:11px; margin:3px 0;"><input type="checkbox" class="cb-genre-pair" value="${p}"> ONLY ${display}</label>`;
+        }).join('');
+        document.getElementById('genres-pairs-container').innerHTML = htmlPairs;
+
+        // Restore checkboxes if they are still mathematically valid
+        document.querySelectorAll('.cb-genre-only').forEach(cb => { if(checkedSingles.includes(cb.value)) cb.checked = true; });
+        document.querySelectorAll('.cb-genre-pair').forEach(cb => { if(checkedPairs.includes(cb.value)) cb.checked = true; });
+        
+        // Re-apply text filter if search box isn't empty
+        filterGenreOnlyUI();
+    }
+
+    function applyFiltersToUI() {
+        let p = userData.profiles[userData.current_profile];
+        let f = p.filters || {};
+        
+        document.getElementById('filter-type').value = f.type || 'both';
+        document.getElementById('filter-rating-min').value = f.rating_min !== undefined ? f.rating_min : 0;
+        document.getElementById('filter-rating-max').value = f.rating_max !== undefined ? f.rating_max : 10;
+        document.getElementById('filter-votes-min').value = f.votes_min !== undefined ? f.votes_min : '';
+        document.getElementById('filter-votes-max').value = f.votes_max !== undefined ? f.votes_max : '';
+        document.getElementById('filter-budget-min').value = f.budget_min !== undefined ? f.budget_min : '';
+        document.getElementById('filter-budget-max').value = f.budget_max !== undefined ? f.budget_max : '';
+        document.getElementById('filter-year-min').value = f.year_int_min || '';
+        document.getElementById('filter-year-max').value = f.year_int_max || '';
+        document.getElementById('filter-runtime-min').value = f.runtime_int_min || '';
+        document.getElementById('filter-runtime-max').value = f.runtime_int_max || '';
+        document.getElementById('filter-seasons-min').value = f.total_seasons_min || '';
+        document.getElementById('filter-seasons-max').value = f.total_seasons_max || '';
+        document.getElementById('filter-episodes-min').value = f.total_episodes_min || '';
+        document.getElementById('filter-episodes-max').value = f.total_episodes_max || '';
+        document.getElementById('filter-eps-season-min').value = f.eps_per_season_min || '';
+        document.getElementById('filter-eps-season-max').value = f.eps_per_season_max || '';
+        document.getElementById('filter-cast-size-min').value = f.cast_size_min || '';
+        document.getElementById('filter-cast-size-max').value = f.cast_size_max || '';
+        
+        document.getElementById('search-box').value = f.search_query || '';
+        document.getElementById('sort-by').value = f.sort_by || 'rating';
+        document.getElementById('sort-order').value = f.sort_order || 'desc';
+        document.getElementById('actor-mode').value = f.actor_mode || 'sort';
+        
+        document.getElementById('vibe-word-search').value = '';
+        filterVibeWordsUI();
+
+        let incB = f.include_booleans || [], excB = f.exclude_booleans || [];
+        document.querySelectorAll('.filter-bool').forEach(el => {
+            let st = 0; if(incB.includes(el.dataset.field)) st = 1; if(excB.includes(el.dataset.field)) st = 2;
+            el.dataset.state = st; el.className = `tri-btn filter-bool state-${st}`; el.innerHTML = (st===0?'⬛ ':st===1?'✅ ':'❌ ') + el.innerText.substring(2);
+        });
+        
+        let incG = f.include_genres || [], excG = f.exclude_genres || [];
+        document.querySelectorAll('.filter-genre').forEach(el => {
+            let st = 0; if(incG.includes(el.dataset.field)) st = 1; if(excG.includes(el.dataset.field)) st = 2;
+            el.dataset.state = st; el.className = `tri-btn filter-genre state-${st}`; el.innerHTML = (st===0?'⬛ ':st===1?'✅ ':'❌ ') + el.innerText.substring(2);
+        });
+        
+        // NOW dynamically build the exact pairs based on what we just excluded above!
+        updateRejectOnlyUI();
+        
+        let rejOnly = f.reject_if_only_genres || [];
+        let rejOnlyPairs = f.reject_if_only_genre_pairs || [];
+        document.querySelectorAll('.cb-genre-only').forEach(cb => cb.checked = rejOnly.includes(cb.value));
+        document.querySelectorAll('.cb-genre-pair').forEach(cb => cb.checked = rejOnlyPairs.includes(cb.value));
+        
+        let pct = f.percentages || {};
+        availablePercents.forEach(pr => {
+            document.getElementById(`pct_min_${pr}`).value = (pct[pr] && pct[pr].min !== undefined) ? pct[pr].min : 0;
+            document.getElementById(`pct_max_${pr}`).value = (pct[pr] && pct[pr].max !== undefined) ? pct[pr].max : 100;
+        });
+        
+        let ints = f.integers || {};
+        availableIntegers.forEach(i => {
+            document.getElementById(`int_min_${i}`).value = (ints[i] && ints[i].min !== undefined) ? ints[i].min : '';
+            document.getElementById(`int_max_${i}`).value = (ints[i] && ints[i].max !== undefined) ? ints[i].max : '';
+        });
+        
+        let eV = f.exact_vibes || []; document.querySelectorAll('.cb-vibe-exact').forEach(cb => cb.checked = eV.includes(cb.value));
+        let wV = f.word_vibes || []; document.querySelectorAll('.cb-vibe-word').forEach(cb => cb.checked = wV.includes(cb.value));
+        
+        syncUI();
+        updateCastUI();
+    }
+
+    window.updateCastUI = function() {
+        let p = userData.profiles[userData.current_profile];
+        let pref = p.preferred_cast || [];
+        let ban = p.banned_cast || [];
+        
+        let activeHtml = '';
+        pref.forEach(c => activeHtml += `<span class="tag glow-pref clickable cast-click-target" data-actor="${c.replace(/"/g, '&quot;')}">${c}</span>`);
+        ban.forEach(c => activeHtml += `<span class="tag glow-ban clickable cast-click-target" data-actor="${c.replace(/"/g, '&quot;')}">${c}</span>`);
+        document.getElementById('active-cast-list').innerHTML = activeHtml || `<span style="font-size:10px; color:#666; font-style:italic;">No active cast filters</span>`;
+
+        let castHtml = '';
+        window._allActors.forEach(a => {
+            let isPref = pref.includes(a.name), isBan = ban.includes(a.name);
+            let cls = isPref ? "tag glow-pref clickable cast-click-target" : (isBan ? "tag glow-ban clickable cast-click-target" : "tag clickable cast-click-target");
+            castHtml += `<div class="cast-item" style="margin:5px 0;"><span class="${cls}" data-actor="${a.name.replace(/"/g, '&quot;')}">${a.name} <span style="color:#888; pointer-events:none;">(${a.count})</span></span></div>`;
+        });
+        document.getElementById('cast-container').innerHTML = castHtml;
+        filterCastUI();
+    };
+
+    function handleCastClick(e, fromActiveList = false) {
+        if(e.target.classList.contains('cast-click-target')) {
+            toggleActorGlobal(e.target.dataset.actor, fromActiveList);
+        }
+    }
+
+    window.toggleActorGlobal = function(name, fromActiveList = false) {
+        let p = userData.profiles[userData.current_profile];
+        if(!p.preferred_cast) p.preferred_cast = [];
+        if(!p.banned_cast) p.banned_cast = [];
+        
+        let wasPref = p.preferred_cast.includes(name);
+        let wasBan = p.banned_cast.includes(name);
+        
+        p.preferred_cast = p.preferred_cast.filter(x => x !== name);
+        p.banned_cast = p.banned_cast.filter(x => x !== name);
+        
+        if (wasPref) {
+            p.banned_cast.push(name);
+        } else if (wasBan) {
+            if(fromActiveList && !confirm(`Remove '${name}' from active cast filters entirely?`)) {
+                p.banned_cast.push(name); 
+            }
+        } else {
+            p.preferred_cast.push(name);
+        }
+        
+        updateCastUI();
+        saveStateQuiet();
+
+        if(document.getElementById('modal-cast').style.display === 'flex') {
+            document.querySelectorAll('.modal-cast-target').forEach(el => {
+                if(el.dataset.actor === name) {
+                    el.className = 'tag clickable modal-cast-target cast-click-target';
+                    if(p.preferred_cast.includes(name)) el.classList.add('glow-pref');
+                    if(p.banned_cast.includes(name)) el.classList.add('glow-ban');
+                }
+            });
+        }
+    };
+
+    window.filterCastUI = function() {
+        let q = document.getElementById('cast-search').value.toLowerCase();
+        document.querySelectorAll('.cast-item').forEach(el => { el.style.display = el.innerText.toLowerCase().includes(q) ? 'block' : 'none'; });
+    };
+
+    function cycleState(el) {
+        let st = (parseInt(el.dataset.state) + 1) % 3;
+        el.dataset.state = st; el.className = `tri-btn ${el.classList.contains('filter-genre') ? 'filter-genre' : 'filter-bool'} state-${st}`;
+        el.innerHTML = (st===0?'⬛ ':st===1?'✅ ':'❌ ') + el.innerText.substring(2);
+        
+        // If they click on a genre, instantly recalculate the Reject if ONLY menus
+        if(el.classList.contains('filter-genre')) {
+            updateRejectOnlyUI();
+        }
+    }
+
+    function getFilters() {
+        let payload = {
+            type: document.getElementById('filter-type').value,
+            rating_min: document.getElementById('filter-rating-min').value, rating_max: document.getElementById('filter-rating-max').value,
+            votes_min: document.getElementById('filter-votes-min').value, votes_max: document.getElementById('filter-votes-max').value,
+            budget_min: document.getElementById('filter-budget-min').value, budget_max: document.getElementById('filter-budget-max').value,
+            year_int_min: document.getElementById('filter-year-min').value, year_int_max: document.getElementById('filter-year-max').value,
+            runtime_int_min: document.getElementById('filter-runtime-min').value, runtime_int_max: document.getElementById('filter-runtime-max').value,
+            total_seasons_min: document.getElementById('filter-seasons-min').value, total_seasons_max: document.getElementById('filter-seasons-max').value,
+            total_episodes_min: document.getElementById('filter-episodes-min').value, total_episodes_max: document.getElementById('filter-episodes-max').value,
+            eps_per_season_min: document.getElementById('filter-eps-season-min').value, eps_per_season_max: document.getElementById('filter-eps-season-max').value,
+            cast_size_min: document.getElementById('filter-cast-size-min').value, cast_size_max: document.getElementById('filter-cast-size-max').value,
+            search_query: document.getElementById('search-box').value, sort_by: document.getElementById('sort-by').value, sort_order: document.getElementById('sort-order').value,
+            include_booleans: [], exclude_booleans: [], include_genres: [], exclude_genres: [], exact_vibes: [], word_vibes: [],
+            reject_if_only_genres: [], reject_if_only_genre_pairs: [],
+            percentages: {}, integers: {}, 
+            preferred_cast: userData.profiles[userData.current_profile].preferred_cast || [],
+            banned_cast: userData.profiles[userData.current_profile].banned_cast || [],
+            actor_mode: document.getElementById('actor-mode').value
+        };
+        document.querySelectorAll('.filter-bool').forEach(el => { if(el.dataset.state==="1") payload.include_booleans.push(el.dataset.field); if(el.dataset.state==="2") payload.exclude_booleans.push(el.dataset.field); });
+        document.querySelectorAll('.filter-genre').forEach(el => { if(el.dataset.state==="1") payload.include_genres.push(el.dataset.field); if(el.dataset.state==="2") payload.exclude_genres.push(el.dataset.field); });
+        document.querySelectorAll('.cb-vibe-exact:checked').forEach(el => payload.exact_vibes.push(el.value));
+        document.querySelectorAll('.cb-vibe-word:checked').forEach(el => payload.word_vibes.push(el.value));
+        document.querySelectorAll('.cb-genre-only:checked').forEach(el => payload.reject_if_only_genres.push(el.value));
+        document.querySelectorAll('.cb-genre-pair:checked').forEach(el => payload.reject_if_only_genre_pairs.push(el.value));
+        
+        availablePercents.forEach(p => { let min=document.getElementById(`pct_min_${p}`).value, max=document.getElementById(`pct_max_${p}`).value; if(min!=0||max!=100) payload.percentages[p]={min,max}; });
+        availableIntegers.forEach(i => { let min=document.getElementById(`int_min_${i}`).value, max=document.getElementById(`int_max_${i}`).value; if(min||max) payload.integers[i]={min,max}; });
+        return payload;
+    }
+
+    function formatRuntime(mins) {
+        if(!mins || mins === 0) return "Unknown length";
+        let h = Math.floor(mins/60), m = mins % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    async function saveStateQuiet() {
+        await fetch('/api/user_data', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(userData) });
+    }
+
+    function applyPosterImg(div, url) {
+        if(url === 'NONE' || !url) {
+            div.innerHTML = `<img src="${DEFAULT_POSTER}" style="width:100%; height:100%; object-fit:cover;" title="No official image available">`;
+        }
+        else div.innerHTML = `<img src="${url}" style="width:100%; height:100%; object-fit:cover;">`;
+    }
+
+    function formatMoney(num) {
+        if(num === null || num === undefined) return 'Unknown';
+        return '$' + num.toLocaleString();
+    }
+
+    async function loadPosterForCard(id, title) {
+        let pDiv = document.getElementById(`poster-${id}`);
+        if(!pDiv) return;
+        
+        if(window._posterCache[id] === 'NONE') {
+            applyPosterImg(pDiv, ""); return;
+        } else if (window._posterCache[id]) {
+            applyPosterImg(pDiv, window._posterCache[id]); return;
+        }
+        
+        try {
+            let r = await fetch('/api/poster', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id: id, title: title}) });
+            let res = await r.json();
+            window._posterCache[id] = res.url || 'NONE';
+            applyPosterImg(pDiv, window._posterCache[id]);
+        } catch(e) { 
+            // Graceful Offline Mode Fallback
+            pDiv.innerHTML = `<div style="position:relative; width:100%; height:100%;">
+                <img src="${DEFAULT_POSTER}" style="width:100%; height:100%; object-fit:cover;" title="Network Error / Offline">
+                <span style="position:absolute; bottom:5px; right:5px; background:rgba(255,0,0,0.8); color:white; font-size:9px; padding:2px 4px; border-radius:3px;">OFFLINE</span>
+            </div>`; 
+        }
+    }
+
+    async function loadFinForCard(id) {
+        let fDiv = document.getElementById(`fin-${id}`);
+        if(!fDiv) return;
+        let m = window.currentMovies[id];
+        
+        if(m.budget !== null && m.budget !== undefined) return;
+        if(window._finCache[id]) { fDiv.innerHTML = window._finCache[id]; return; }
+        
+        try {
+            let r = await fetch('/api/financials', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) });
+            let res = await r.json();
+            let txt = `<span style="color:var(--green);">💰 Budg: ${formatMoney(res.budget)}</span>`;
+            window._finCache[id] = txt;
+            fDiv.innerHTML = txt;
+        } catch(e) { fDiv.innerHTML = '<span style="color:var(--red);">Error</span>'; }
+    }
+
+    window.searchGoogle = function(id) {
+        let m = window.currentMovies[id];
+        if(!m) return;
+        let year = m.year_int || m.year || '';
+        let query = m.title + (year ? ' ' + year : '');
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(query), '_blank');
+    };
+
+    window.doSearch = async function() {
+        let filters = getFilters();
+        let p = userData.profiles[userData.current_profile];
+        p.filters = filters; 
+        saveStateQuiet(); 
+
+        if(currentView === 'watch_later') {
+            filters.filter_ids = Object.keys(p.watch_later);
+            if(filters.filter_ids.length === 0) { renderMovies([]); return; }
+        }
+        
+        document.getElementById('grid-container').style.opacity = '0.5';
+        
+        try {
+            let r = await fetch('/api/search', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(filters) });
+            let res = await r.json();
+            document.getElementById('grid-container').style.opacity = '1';
+            if(res.success) renderMovies(res.results);
+            else document.getElementById('grid-container').innerHTML = '<div style="color:var(--red); padding:20px;">Backend Error: ' + res.error + '</div>';
+        } catch(e) { 
+            document.getElementById('grid-container').style.opacity = '1';
+            document.getElementById('grid-container').innerHTML = '<div style="color:var(--red); padding:20px;">Fatal Error executing search.</div>'; 
+        }
+    };
+
+    function buildCardHtml(m, p, isRejected) {
+        let showHtml = '';
+        if (m.type === 'show') {
+            let opts = Object.keys(m.season_episodes || {}).map(s => `<option>${s}: ${m.season_episodes[s]} eps</option>`).join('');
+            showHtml = `<div style="background:rgba(0,0,0,0.3); padding:5px; border-radius:3px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:11px; color:#aaa;">Seasons: ${m.total_seasons} | Total: ${m.total_episodes}</span><select style="font-size:10px; padding:2px; width:120px; background:#111; color:#fff; border:1px solid #333;"><option>Season breakdown</option>${opts}</select></div>`;
+        }
+        
+        let wlBtn = m.wl_data ? `<button class="btn" style="flex:1; color:var(--yellow);" onclick="removeFromWl('${m.id}', this)">★ Watch Later (${m.wl_data.priority}/10)</button>` : `<button class="btn" style="flex:1;" onclick="addToWl('${m.id}', '${m.title.replace(/'/g, "\\'")}', this)">★ Watch Later</button>`;
+        
+        let pref = p.preferred_cast || [];
+        let ban = p.banned_cast || [];
+        
+        let cl = m.cast_list || [];
+        let topActors = cl.length === 0 ? `<span style="font-size:11px; color:#777; font-style:italic;">No cast available</span>` : cl.slice(0,3).map(c => {
+            let cls = 'tag'; if(pref.includes(c)) cls += ' glow-pref'; if(ban.includes(c)) cls += ' glow-ban';
+            return `<span class="${cls}" style="cursor:default;">${c}</span>`;
+        }).join('');
+        
+        let hiddenActors = cl.slice(3);
+        let btnGlow = '';
+        if(hiddenActors.some(a => pref.includes(a))) btnGlow = 'glow-pref';
+        else if(hiddenActors.some(a => ban.includes(a))) btnGlow = 'glow-ban';
+        let moreActors = cl.length > 0 ? `<button class="btn ${btnGlow}" style="padding:2px 5px; font-size:9px;" onclick="showFullCast('${m.id}')">Show Cast ${cl.length > 3 ? '(+'+(cl.length-3)+')' : ''}</button>` : '';
+
+        let eStats = availableIntegers.map(i => m[i] != null ? `<span style="background:rgba(0,255,68,0.1); color:var(--green); padding:2px 5px; border-radius:3px; font-size:9px;">${i.replace(/_/g, ' ')}: ${m[i]}</span>` : '').join('');
+        
+        let posterHtml = p.show_posters ? `<div id="poster-${m.id}" style="height: 450px; background:rgba(0,0,0,0.5); border-radius:4px; margin-bottom:10px; display:flex; justify-content:center; align-items:center; overflow:hidden;"><span style="color:#555; font-size:10px;">Loading Image...</span></div>` : '';
+        
+        let finTxt = m.budget !== null
+            ? `<span style="color:var(--green);">💰 Budg: ${formatMoney(m.budget)}</span>`
+            : `<span style="color:#555;">💰 Loading financials...</span>`;
+            
+        if (m.type === 'show' && m.budget === null) {
+            finTxt = `<span style="color:#555; font-style:italic;">TV Show Financials N/A</span>`;
+        }
+            
+        let finHtml = `<div id="fin-${m.id}" style="font-size:10px; margin-top:5px; background:rgba(0,0,0,0.3); padding:4px; border-radius:3px;">${finTxt}</div>`;
+
+        return `
+        <div class="card lazy-card ${isRejected ? 'rejected-card' : ''}" data-id="${m.id}" data-title="${m.title.replace(/"/g, '&quot;')}">
+            <div class="card-header">
+                <h4 class="card-title">${m.title}</h4>
+                <div style="display:flex; flex-direction:column; gap:5px; align-items:flex-end; flex-shrink:0;">
+                    <button class="btn" style="padding:2px 6px; font-size:10px; border-color:var(--accent);" onclick="showAiInfo('${m.id}')">ℹ️ Full Info</button>
+                    <button class="btn btn-accent" style="padding:2px 6px; font-size:10px;" onclick="searchGoogle('${m.id}')">🔍 Search</button>
+                </div>
+            </div>
+            <div class="card-meta">
+                <span style="color:var(--text); font-weight:bold;">${m.type === 'show' ? '📺 Series' : '🎬 Movie'}</span>
+                <span>📅 ${m.year_int || m.year || '?'}</span>
+                <span>⏱️ ${formatRuntime(m.runtime_int)}</span>
+            </div>
+            <div class="card-meta" style="margin-top:0; margin-bottom:5px;"><span>⭐ ${m.rating}</span><span>🗳️ ${m.votes}</span></div>
+            ${posterHtml}
+            ${showHtml}
+            <div class="card-tags" style="margin-top:5px; align-items:center;">${topActors}${moreActors}</div>
+            <div class="card-tags" style="margin-top:5px;">${(m.genres || []).map(g => `<span class="tag">${g}</span>`).join('')}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">${eStats}</div>
+            ${m.vibe ? `<div style="font-size:10px; color:var(--accent); margin-top:5px;">Vibe: ${m.vibe}</div>` : ''}
+            ${finHtml}
+            <div class="card-summary">${m.short_summary || 'No summary available.'}</div>
+            <div class="card-actions">
+                ${wlBtn}
+                <button class="btn btn-reject" style="flex:1;" onclick="toggleRej('${m.id}', this)">${isRejected ? 'Undo Reject' : '👎 Reject'}</button>
+                <button class="btn" style="flex:1;" onclick="hideMov('${m.id}', this)">👁️‍🗨️ Hide</button>
+            </div>
+        </div>`;
+    }
+
+    window.renderNextChunk = function() {
+        let mainGrid = document.getElementById('main-grid');
+        let rejGrid = document.getElementById('rej-grid');
+        if(!mainGrid || !rejGrid) return;
+        
+        let p = userData.profiles[userData.current_profile];
+        let addedNodes = [];
+        
+        let mainCount = 0;
+        while(mainCount < CHUNK_SIZE && window._renderMainIdx < window._currentMainList.length) {
+            let m = window._currentMainList[window._renderMainIdx++];
+            let div = document.createElement('div');
+            div.innerHTML = buildCardHtml(m, p, false);
+            let child = div.firstElementChild;
+            mainGrid.appendChild(child);
+            addedNodes.push(child);
+            mainCount++;
+        }
+        
+        let rejCount = 0;
+        if(mainCount < CHUNK_SIZE && window._renderRejIdx < window._currentRejList.length) {
+            document.getElementById('rej-header').style.display = 'block';
+            while(rejCount < (CHUNK_SIZE - mainCount) && window._renderRejIdx < window._currentRejList.length) {
+                let m = window._currentRejList[window._renderRejIdx++];
+                let div = document.createElement('div');
+                div.innerHTML = buildCardHtml(m, p, true);
+                let child = div.firstElementChild;
+                rejGrid.appendChild(child);
+                addedNodes.push(child);
+                rejCount++;
+            }
+        }
+        
+        addedNodes.forEach(n => window._lazyObserver.observe(n));
+    };
+
+    function renderMovies(movies) {
+        const p = userData.profiles[userData.current_profile];
+        const rejected = new Set(p.rejected || []), hidden = new Set(p.hidden || []), wl = p.watch_later || {};
+        
+        let mainList = [], rejList = [];
+        let hiddenCount = 0;
+        window.currentMovies = {}; 
+        
+        movies.forEach(m => {
+            window.currentMovies[m.id] = m;
+            if (hidden.has(m.id) && !showHiddenOverrides) {
+                hiddenCount++;
+                return;
+            }
+            if (currentView === 'watch_later') {
+                if (!wl[m.id]) return;
+                m.wl_data = wl[m.id];
+                mainList.push(m);
+            } else {
+                m.wl_data = wl[m.id];
+                rejected.has(m.id) ? rejList.push(m) : mainList.push(m);
+            }
+        });
+
+        if (currentView === 'watch_later') {
+            let srt = document.getElementById('wl-sort').value;
+            if(srt === 'priority_desc') mainList.sort((a,b) => b.wl_data.priority - a.wl_data.priority);
+            else if(srt === 'priority_asc') mainList.sort((a,b) => a.wl_data.priority - b.wl_data.priority);
+        }
+
+        let totVis = mainList.length + rejList.length;
+        let cText = `${totVis} results`;
+        let brk = [];
+        if(mainList.length > 0) brk.push(`${mainList.length} new`);
+        if(rejList.length > 0) brk.push(`${rejList.length} rejected`);
+        if(brk.length > 0) cText += ` (${brk.join(', ')})`;
+        if(hiddenCount > 0) cText += ` — ${hiddenCount} hidden omitted`;
+        document.getElementById('result-count').innerText = cText;
+
+        window._currentMainList = mainList;
+        window._currentRejList = rejList;
+        window._renderMainIdx = 0;
+        window._renderRejIdx = 0;
+
+        let cont = document.getElementById('grid-container');
+        if(mainList.length === 0 && rejList.length === 0) {
+            cont.innerHTML = `<div style="padding:40px; text-align:center; color:#555;">No records match your exact parameters.</div>`;
+            return;
+        }
+
+        cont.innerHTML = `
+            <div id="main-grid" class="grid"></div>
+            <h3 id="rej-header" style="display:none; margin-top:40px; color:var(--red);">👎 Rejected Movies</h3>
+            <div id="rej-grid" class="grid"></div>
+        `;
+        
+        renderNextChunk();
+    }
+
+    window.showFullCast = function(id) {
+        window._lastCastId = id;
+        let m = window.currentMovies[id];
+        if(!m) return;
+        let p = userData.profiles[userData.current_profile];
+        let pref = p.preferred_cast || [];
+        let ban = p.banned_cast || [];
+        
+        document.getElementById('full-cast-list').innerHTML = (m.cast_list||[]).map(c => {
+            let cls = 'tag clickable modal-cast-target cast-click-target';
+            if(pref.includes(c)) cls += ' glow-pref';
+            if(ban.includes(c)) cls += ' glow-ban';
+            return `<span class="${cls}" style="font-size:12px; padding:5px 10px;" data-actor="${c.replace(/"/g, '&quot;')}">${c}</span>`;
+        }).join('');
+        openModal('modal-cast');
+    };
+
+    window.showAiInfo = function(id) {
+        let m = window.currentMovies[id];
+        if(!m) return;
+        document.getElementById('ai-info-title').innerText = `Full Info: ${m.title}`;
+        
+        let stdHtml = '', aiHtml = '';
+        
+        STANDARD_KEYS_ORDER.forEach(k => {
+            if(m[k] === null || m[k] === undefined) return;
+            let v = m[k];
+            
+            if(k === 'budget' && typeof v === 'number') v = formatMoney(v);
+            else if(Array.isArray(v)) v = v.join(', ');
+            else if(typeof v === 'object') v = JSON.stringify(v).replace(/["{}]/g, '').replace(/:/g, ': ');
+            
+            stdHtml += `<tr><td>${k.replace(/_/g, ' ').toUpperCase()}</td><td>${v}</td></tr>`;
+        });
+
+        AI_KEYS_ORDER.forEach(k => {
+            if(m[k] === null || m[k] === undefined) return;
+            let v = m[k];
+            if(window._boolFields.includes(k)) v = (v === 1) ? '✅ True' : (v === 0 ? '❌ False' : v);
+            aiHtml += `<tr><td>${k}</td><td>${v}</td></tr>`;
+        });
+
+        let ignoreKeys = [...STANDARD_KEYS_ORDER, ...AI_KEYS_ORDER, 'id', 'cast_score', 'wl_data', 'year_int', 'runtime_int'];
+        Object.keys(m).sort().forEach(k => {
+            if(ignoreKeys.includes(k) || m[k] === null || m[k] === undefined) return;
+            let v = m[k];
+            if(window._boolFields.includes(k)) v = (v === 1) ? '✅ True' : (v === 0 ? '❌ False' : v);
+            aiHtml += `<tr><td>${k}</td><td>${v}</td></tr>`;
+        });
+        
+        document.getElementById('standard-info-table').innerHTML = `<tr><th colspan="2">Standard Database Info</th></tr>${stdHtml}`;
+        document.getElementById('ai-intel-table').innerHTML = `<tr><th colspan="2">AI Enrichment Intel</th></tr>${aiHtml}`;
+        openModal('modal-ai-info');
+    };
+
+    window.setView = function(v) {
+        currentView = v;
+        document.getElementById('btn-view-main').style.background = v==='main' ? 'var(--accent)' : '#2a2a2a';
+        document.getElementById('btn-view-main').style.color = v==='main' ? '#000' : 'var(--text)';
+        document.getElementById('btn-view-wl').style.background = v==='watch_later' ? 'var(--accent)' : '#2a2a2a';
+        document.getElementById('btn-view-wl').style.color = v==='watch_later' ? '#000' : 'var(--text)';
+        document.getElementById('wl-toolbar').style.display = v==='watch_later' ? 'block' : 'none';
+        doSearch();
+    };
+
+    // DOM MANIPULATION MAGIC: No lag, no scrolling jump, instant UI interaction!
+    window.toggleRej = function(id, btnEl) { 
+        let r = userData.profiles[userData.current_profile].rejected; 
+        let i = r.indexOf(id); 
+        let isNowRejected = false;
+        
+        if(i >= 0) { r.splice(i,1); } 
+        else { r.push(id); isNowRejected = true; }
+        saveStateQuiet(); 
+        
+        let card = document.querySelector(`.card[data-id="${id}"]`);
+        if(card) {
+            if(isNowRejected) {
+                card.classList.add('rejected-card');
+                if(btnEl) btnEl.innerText = 'Undo Reject';
+                let rejGrid = document.getElementById('rej-grid');
+                if(rejGrid) rejGrid.appendChild(card);
+                let rejHeader = document.getElementById('rej-header');
+                if(rejHeader) rejHeader.style.display = 'block';
+            } else {
+                card.classList.remove('rejected-card');
+                if(btnEl) btnEl.innerText = '👎 Reject';
+                let mainGrid = document.getElementById('main-grid');
+                if(mainGrid) mainGrid.appendChild(card);
+            }
+        }
+    };
+    
+    window.hideMov = function(id, btnEl) { 
+        let h = userData.profiles[userData.current_profile].hidden; 
+        if(!h.includes(id)) { 
+            h.push(id); 
+            saveStateQuiet(); 
+            let card = document.querySelector(`.card[data-id="${id}"]`);
+            if(card) card.remove();
+        } 
+    };
+    
+    window.removeFromWl = function(id, btnEl) { 
+        if(!confirm("Are you sure you want to remove this from Watch Later?")) return;
+        delete userData.profiles[userData.current_profile].watch_later[id]; 
+        saveStateQuiet(); 
+        
+        if(currentView === 'watch_later') {
+            let card = document.querySelector(`.card[data-id="${id}"]`);
+            if(card) card.remove();
+        } else if(btnEl) {
+            let m = window.currentMovies[id];
+            if(m) m.wl_data = null;
+            let newBtn = document.createElement('button');
+            newBtn.className = 'btn';
+            newBtn.style.flex = '1';
+            newBtn.innerText = '★ Watch Later';
+            newBtn.onclick = function() { addToWl(id, m.title.replace(/'/g, "\\'"), newBtn); };
+            btnEl.replaceWith(newBtn);
+        }
+    };
+    
+    window.addToWl = function(id, title, btnEl) {
+        pendingWlId = id; pendingWlRating = 0;
+        document.getElementById('modal-wl-title').innerText = title;
+        window._pendingWlBtn = btnEl;
+        let g = document.getElementById('wl-rating-grid'); g.innerHTML = '';
+        for(let i=1; i<=10; i++) {
+            let b = document.createElement('button'); b.className = 'rating-btn'; b.innerText = i;
+            b.onclick = () => { document.querySelectorAll('#wl-rating-grid .rating-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); pendingWlRating = i; };
+            g.appendChild(b);
+        }
+        openModal('modal-wl');
+    };
+    
+    window.confirmWatchLater = function() {
+        if(!pendingWlRating) return alert("Select priority level (1-10)");
+        userData.profiles[userData.current_profile].watch_later[pendingWlId] = { priority: pendingWlRating, added_at: Date.now() };
+        closeModal('modal-wl'); saveStateQuiet(); 
+        
+        if(window._pendingWlBtn) {
+            let m = window.currentMovies[pendingWlId];
+            if(m) m.wl_data = { priority: pendingWlRating };
+            let newBtn = document.createElement('button');
+            newBtn.className = 'btn';
+            newBtn.style.flex = '1';
+            newBtn.style.color = 'var(--yellow)';
+            newBtn.innerText = `★ Watch Later (${pendingWlRating}/10)`;
+            newBtn.onclick = function() { removeFromWl(pendingWlId, newBtn); };
+            window._pendingWlBtn.replaceWith(newBtn);
+            window._pendingWlBtn = null;
+        } else {
+            doSearch();
+        }
+    };
+
+    window.openModal = function(id) { document.getElementById(id).style.display = 'flex'; };
+    window.closeModal = function(id) { document.getElementById(id).style.display = 'none'; };
+    
+    function updateProfileDropdown() {
+        let sel = document.getElementById('profile-select');
+        sel.innerHTML = Object.keys(userData.profiles).map(p => `<option value="${p}">${p}</option>`).join('');
+        sel.value = userData.current_profile;
+    }
+
+    window.deleteProfile = function() {
+        let pName = userData.current_profile;
+        if(!confirm(`Are you sure you want to completely delete the profile '${pName}'?`)) return;
+        
+        delete userData.profiles[pName];
+        
+        if(Object.keys(userData.profiles).length === 0) {
+            userData.profiles["Default"] = { rejected:[], hidden:[], watch_later:{}, colors:{}, section_order:{}, preferred_cast:[], banned_cast:[], filters:{}, show_posters: true };
+        }
+        
+        userData.current_profile = Object.keys(userData.profiles)[0];
+        
+        updateProfileDropdown();
+        applyProfileSettings();
+        applyFiltersToUI();
+        saveStateQuiet();
+        doSearch();
+    };
+    
+    window.switchProfile = function() { 
+        userData.current_profile = document.getElementById('profile-select').value; 
+        applyProfileSettings(); applyFiltersToUI(); doSearch(); 
+    };
+    
+    window.newProfile = function() { let n = prompt("Profile Name:"); if(n && !userData.profiles[n]) { userData.profiles[n] = { rejected:[], hidden:[], watch_later:{}, colors:{}, section_order:{}, preferred_cast:[], banned_cast:[], filters:{}, show_posters: true }; userData.current_profile = n; updateProfileDropdown(); applyProfileSettings(); applyFiltersToUI(); saveStateQuiet(); doSearch(); } };
+    window.restoreRejected = function() { if(confirm("Restore all?")) { userData.profiles[userData.current_profile].rejected = []; saveStateQuiet(); doSearch(); } };
+    window.restoreHidden = function() { if(confirm("Restore all?")) { userData.profiles[userData.current_profile].hidden = []; saveStateQuiet(); doSearch(); } };
+    window.restoreAll = function() { if(confirm("Nuke data?")) { userData.profiles[userData.current_profile] = { rejected:[], hidden:[], watch_later:{}, colors:{}, section_order:{}, preferred_cast:[], banned_cast:[], filters:{}, show_posters: true }; applyProfileSettings(); applyFiltersToUI(); saveStateQuiet(); doSearch(); } };
+    
+    window.toggleShowHidden = function() { showHiddenOverrides = document.getElementById('cb-show-hidden').checked; doSearch(); };
+    window.togglePosters = function() { userData.profiles[userData.current_profile].show_posters = document.getElementById('cb-show-posters').checked; saveStateQuiet(); doSearch(); };
+
+    function applyProfileSettings() {
+        let p = userData.profiles[userData.current_profile];
+        const defColor = { bg:"#111111", panel:"#1a1a1a", accent:"#00d4ff", text:"#ffffff" };
+        if(!p.colors) p.colors = {};
+        if(p.show_posters === undefined) p.show_posters = true;
+        
+        let cBg = p.colors.bg || defColor.bg;
+        let cPanel = p.colors.panel || defColor.panel;
+        let cAccent = p.colors.accent || defColor.accent;
+        let cText = p.colors.text || defColor.text;
+
+        document.documentElement.style.setProperty('--bg', cBg);
+        document.documentElement.style.setProperty('--panel', cPanel);
+        document.documentElement.style.setProperty('--accent', cAccent);
+        document.documentElement.style.setProperty('--text', cText);
+        
+        document.getElementById('col-bg').value = cBg;
+        document.getElementById('col-panel').value = cPanel;
+        document.getElementById('col-accent').value = cAccent;
+        document.getElementById('col-text').value = cText;
+        
+        document.getElementById('cb-show-posters').checked = !!p.show_posters;
+
+        if(!p.section_order || Object.keys(p.section_order).length === 0) {
+            p.section_order = {}; sidebarSections.forEach((s, i) => p.section_order[s] = i+1);
+        }
+        for(let sec in p.section_order) {
+            let el = document.getElementById(sec);
+            if(el) el.style.order = p.section_order[sec];
+        }
+    }
+
+    window.applyColors = function() {
+        let p = userData.profiles[userData.current_profile];
+        p.colors = { bg: document.getElementById('col-bg').value, panel: document.getElementById('col-panel').value, accent: document.getElementById('col-accent').value, text: document.getElementById('col-text').value };
+        applyProfileSettings(); saveStateQuiet();
+    };
+
+    function buildLayoutEditor() {
+        let p = userData.profiles[userData.current_profile];
+        let arr = sidebarSections.map(id => ({ id, order: p.section_order[id] || 99, name: document.querySelector(`#${id} h3`).innerText.replace(/ \(.*/, '') })).sort((a,b)=>a.order-b.order);
+        document.getElementById('layout-editor').innerHTML = arr.map((item, idx) => `
+            <div style="display:flex; justify-content:space-between; margin:4px 0; padding:4px; background:rgba(0,0,0,0.5);">
+                <span>${item.name}</span>
+                <div>
+                    <button class="btn" style="padding:2px 6px;" onclick="moveSection('${item.id}', -1)">▲</button>
+                    <button class="btn" style="padding:2px 6px;" onclick="moveSection('${item.id}', 1)">▼</button>
+                </div>
+            </div>`).join('');
+    }
+
+    window.moveSection = function(id, dir) {
+        let p = userData.profiles[userData.current_profile];
+        let arr = sidebarSections.sort((a,b) => (p.section_order[a]||99) - (p.section_order[b]||99));
+        let idx = arr.indexOf(id);
+        if(idx + dir < 0 || idx + dir >= arr.length) return;
+        let swap = arr[idx+dir];
+        let temp = p.section_order[id];
+        p.section_order[id] = p.section_order[swap];
+        p.section_order[swap] = temp;
+        applyProfileSettings(); buildLayoutEditor(); saveStateQuiet();
+    };
+
+    window.onload = init;
+</script>
+</body>
+</html>

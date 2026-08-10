@@ -15,6 +15,7 @@
 
 # Keep the folder structure but keep it empty on GitHub
 !/raw_data/.gitkeep
+!/website/*.html
 
 # Ignore local AI models and python environment
 __pycache__/
